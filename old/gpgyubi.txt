@@ -1,0 +1,22 @@
+Reader ...........: Yubico YubiKey OTP FIDO CCID 00 00
+Application ID ...: D2760001240100000006122457790000
+Application type .: OpenPGP
+Version ..........: 3.4
+Manufacturer .....: Yubico
+Serial number ....: 12245779
+Name of cardholder: [not set]
+Language prefs ...: [not set]
+Salutation .......: 
+URL of public key : [not set]
+Login data .......: [not set]
+Signature PIN ....: not forced
+Key attributes ...: rsa2048 rsa2048 rsa2048
+Max. PIN lengths .: 127 127 127
+PIN retry counter : 3 0 3
+Signature counter : 0
+KDF setting ......: off
+UIF setting ......: Sign=off Decrypt=off Auth=off
+Signature key ....: [none]
+Encryption key....: [none]
+Authentication key: [none]
+General key info..: [none]

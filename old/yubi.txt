@@ -1,0 +1,22 @@
+Device type: YubiKey 5 NFC
+Serial number: 12245779
+Firmware version: 5.2.4
+Form factor: Keychain (USB-A)
+Enabled USB interfaces: OTP, FIDO, CCID
+NFC transport is enabled
+
+Applications	USB          	NFC          
+Yubico OTP  	Enabled      	Enabled
+FIDO U2F    	Enabled      	Enabled
+FIDO2       	Enabled      	Enabled
+OATH        	Enabled      	Enabled
+PIV         	Enabled      	Enabled
+OpenPGP     	Enabled      	Enabled
+YubiHSM Auth	Not available	Not available
+OpenPGP version:            3.4
+Application version:        5.2.4
+PIN tries remaining:        3
+Reset code tries remaining: 0
+Admin PIN tries remaining:  3
+Require PIN for signature:  Once
+KDF enabled:                False

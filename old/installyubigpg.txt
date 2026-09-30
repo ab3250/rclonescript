@@ -1,0 +1,36 @@
+A YubiKey speaks the OpenPGP smart-card protocol. GnuPG talks to it through scdaemon / gpg-agent.
+ The private key never leaves the stick; GPG only keeps  a stub (ssb>).
+ You touch the key and enter the User PIN, not a GPG symmetric passphrase.
+ 
+ 
+ # encrypt to the key on the YubiKey (no passphrase wrapping)
+printf '%s' "$plain" | gpg --encrypt --armor -r 0xYOURKEYID | base64 --wrap 0
+
+# decrypt — inserts YubiKey, pinentry asks for PIN, optional touch
+printf '%s' "$blob" | base64 -d | gpg --decrypt --pinentry-mode loopback
+
+
+generate on key
+gpg --card-edit -> admin -> generate
+keytocard
+
+Change default PINs (123456 user, 12345678 admin) via gpg --card-edit → admin → passwd or ykman openpgp access change-pin.
+
+
+------------ setup
+# OpenPGP (GPG)
+gpg --card-edit    # admin → passwd
+# or
+ykman openpgp access change-pin
+ykman openpgp access change-admin-pin
+
+# PIV
+ykman piv access change-pin
+ykman piv access change-puk
+
+# FIDO2
+ykman fido access change-pin
+
+ykman openpgp keys set-touch sig on     # tap to sign
+ykman openpgp keys set-touch enc on     # tap to decrypt
+ykman openpgp keys set-touch aut cached # tap once, cached briefly for SSH
