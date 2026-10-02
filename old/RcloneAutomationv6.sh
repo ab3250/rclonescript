@@ -129,7 +129,8 @@ export RCLONE_S3_SECRET_ACCESS_KEY="$AWS_SECRET_ACCESS_KEY"
 if [[ -n "${RCLONE_PASSWORD:-}" && -n "${RCLONE_SALT:-}" ]]; then
   export RCLONE_CONFIG_S3CRYPT_TYPE=crypt
   export RCLONE_CONFIG_S3CRYPT_FILENAME_ENCRYPTION=standard
-  export RCLONE_CONFIG_S3CRYPT_DIRECTORY_NAME_ENCRYPTION=true  
+  export RCLONE_CONFIG_S3CRYPT_DIRECTORY_NAME_ENCRYPTION=true
+  export RCLONE_CONFIG_S3CRYPT_STORAGE_CLASS=STANDARD
   export RCLONE_CONFIG_S3CRYPT_PASSWORD="$(rclone obscure "$RCLONE_PASSWORD")"
   export RCLONE_CONFIG_S3CRYPT_PASSWORD2="$(rclone obscure "$RCLONE_SALT")"  
   export RCLONE_CONFIG_S3CRYPT_REMOTE=":s3:glacier-deep-archive-backup-ab/encrypted-standard-storage" 
@@ -140,10 +141,9 @@ fi
 # prefix (awsdeep:bucket-name). Destination is the path inside that bucket.
 presets=(
  #1 "Backup Google Takeout to AWS DEEP Archive|/home/ab/Downloads/dtach/googleTakeout/|googletakeout/|:s3:glacier-deep-archive-backup-ab|DEEP_ARCHIVE"
-  #"Archive Gentoo25 to AWS Deep|/media/freespace/backups/gentoo25/|gentoo.backup|:s3:glacier-deep-archive-backup-ab|DEEP_ARCHIVE"
-  #"Copy test.txt to AWS Encrypted|/media/freespace/test.txt||S3CRYPT:|STANDARD"
-  "T1Copy DEEP test.txt to AWS Encrypted|/media/freespace/test2.txt||:s3:glacier-deep-archive-backup-ab|DEEP_ARCHIVE"
-  "T2Copy CRYPT test.txt to AWS Encrypted|/media/freespace/test.txt||S3CRYPT:|STANDARD"
+  "Archive Gentoo25 to AWS Deep|/media/freespace/backups/gentoo25/|gentoo.backup|:s3:glacier-deep-archive-backup-ab|DEEP_ARCHIVE"
+  "Copy test.txt to AWS Encrypted|/media/freespace/test.txt||S3CRYPT:|STANDARD"
+  #"Copy test.txt to AWS Encrypted|/media/freespace/test.txt|encrypted-standard-storage|S3CRYPT:|STANDARD"
 )
 
 echo

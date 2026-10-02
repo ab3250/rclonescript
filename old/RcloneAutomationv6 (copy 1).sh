@@ -99,20 +99,20 @@ unset plain blob pair key val
 #============== RCLONE GLOBAL ================= DO NOT CHANGE
 export RCLONE_CONFIG=/dev/null
 #============== Amazon S3 ================= 
-export RCLONE_S3_MAX_TRANSFER=1000G
-export RCLONE_S3_BWLIMIT=250M
-export RCLONE_S3_CUTOFF_MODE=SOFT
-export RCLONE_S3_TRANSFERS=1
-export RCLONE_S3_LOG_LEVEL=INFO
-export RCLONE_S3_LOG_FILE="log-$(date "+%F-%T")"
-export RCLONE_S3_REGION=us-east-1
-export RCLONE_S3_UPLOAD_CONCURRENCY=16
-export RCLONE_S3_CHUNK_SIZE=16M
-export RCLONE_S3_TYPE=s3
-export RCLONE_S3_PROVIDER=AWS
-export RCLONE_S3_ACL=private
-export RCLONE_S3_ACCESS_KEY_ID="$AWS_ACCESS_KEY_ID"
-export RCLONE_S3_SECRET_ACCESS_KEY="$AWS_SECRET_ACCESS_KEY"
+export RCLONE_CONFIG_MAX_TRANSFER=1000G
+export RCLONE_CONFIG_BWLIMIT=250M
+export RCLONE_CONFIG_CUTOFF_MODE=SOFT
+export RCLONE_CONFIG_TRANSFERS=1
+export RCLONE_CONFIG_LOG_LEVEL=INFO
+export RCLONE_CONFIG_LOG_FILE="log-$(date "+%F-%T")"
+export RCLONE_CONFIG_REGION=us-east-1
+export RCLONE_CONFIG_UPLOAD_CONCURRENCY=16
+export RCLONE_CONFIG_CHUNK_SIZE=16M
+#export RCLONE_CONFIG_TYPE=s3
+export RCLONE_CONFIG_PROVIDER=AWS
+export RCLONE_CONFIG_ACL=private
+export RCLONE_CONFIG_ACCESS_KEY_ID="$AWS_ACCESS_KEY_ID"
+export RCLONE_CONFIG_SECRET_ACCESS_KEY="$AWS_SECRET_ACCESS_KEY"
 #export RCLONE_S3_BUCKET_ACL
 #export RCLONE_S3_LOCATION_CONSTRAINT
 #export RCLONE_S3_SERVER_SIDE_ENCRYPTION
@@ -122,27 +122,43 @@ export RCLONE_S3_SECRET_ACCESS_KEY="$AWS_SECRET_ACCESS_KEY"
 #export RCLONE_S3_PROVIDER
 #export RCLONE_S3_ENV_AUTH=true
 #============== Amazon S3CRYPT ================= 
+
+if [[ -n "${RCLONE_PASSWORD:-}" && -n "${RCLONE_SALT:-}" ]]; then
+  export RCLONE_S3DEEP_TYPE=s3
+  export RCLONE_S3DEEP=AWS
+  export RCLONE_S3DEEP_STORAGE_CLASS=DEEP_ARCHIVE  
+  export RCLONE_S3DEEP_REMOTE="s3:glacier-deep-archive-backup-ab/" 
+fi
+
+
+
+
+
 # Optional client-side crypt remote named "secret".
 # Uncomment and set RCLONE_CONFIG_SECRET_REMOTE to the underlying remote
 # (example: awsdeep:glacier-deep-archive-backup-ab) to use secret:path.
 # rclone obscure is required; raw passwords are not accepted in env/config.
 if [[ -n "${RCLONE_PASSWORD:-}" && -n "${RCLONE_SALT:-}" ]]; then
   export RCLONE_CONFIG_S3CRYPT_TYPE=crypt
+  export RCLONE_CONFIG_S3CRYPT=AWS
   export RCLONE_CONFIG_S3CRYPT_FILENAME_ENCRYPTION=standard
-  export RCLONE_CONFIG_S3CRYPT_DIRECTORY_NAME_ENCRYPTION=true  
+  export RCLONE_CONFIG_S3CRYPT_DIRECTORY_NAME_ENCRYPTION=true
+  export RCLONE_CONFIG_S3CRYPT_STORAGE_CLASS=STANDARD
   export RCLONE_CONFIG_S3CRYPT_PASSWORD="$(rclone obscure "$RCLONE_PASSWORD")"
   export RCLONE_CONFIG_S3CRYPT_PASSWORD2="$(rclone obscure "$RCLONE_SALT")"  
   export RCLONE_CONFIG_S3CRYPT_REMOTE=":s3:glacier-deep-archive-backup-ab/encrypted-standard-storage" 
 fi
+
+
 
 # Format: "Display Name|source|destination|bucket|storageClass"
 # bucket may be an on-the-fly remote (:s3:bucket-name) or a named remote
 # prefix (awsdeep:bucket-name). Destination is the path inside that bucket.
 presets=(
  #1 "Backup Google Takeout to AWS DEEP Archive|/home/ab/Downloads/dtach/googleTakeout/|googletakeout/|:s3:glacier-deep-archive-backup-ab|DEEP_ARCHIVE"
-  #"Archive Gentoo25 to AWS Deep|/media/freespace/backups/gentoo25/|gentoo.backup|:s3:glacier-deep-archive-backup-ab|DEEP_ARCHIVE"
-  #"Copy test.txt to AWS Encrypted|/media/freespace/test.txt||S3CRYPT:|STANDARD"
-  "T1Copy DEEP test.txt to AWS Encrypted|/media/freespace/test2.txt||:s3:glacier-deep-archive-backup-ab|DEEP_ARCHIVE"
+ # "Archive Gentoo25 to AWS Deep|/media/freespace/backups/gentoo25/|gentoo.backup|:s3:glacier-deep-archive-backup-ab|DEEP_ARCHIVE"
+ # "Copy test.txt to AWS Encrypted|/media/freespace/test.txt||S3CRYPT:|STANDARD"
+  "T1Copy DEEP test.txt to AWS Encrypted|/media/freespace/test2.txt||S3DEEP:|STANDARD"
   "T2Copy CRYPT test.txt to AWS Encrypted|/media/freespace/test.txt||S3CRYPT:|STANDARD"
 )
 
@@ -178,7 +194,6 @@ echo "  Bucket:        $bucket"
 echo "  Storage class: $storageClass"
 echo
 
-export RCLONE_S3_STORAGE_CLASS=$storageClass
 
 if [[ ! -e "$source" ]]; then
   echo "Source path does not exist: $source" >&2
