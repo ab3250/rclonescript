@@ -3,11 +3,15 @@
 #AWSACCESSCRYPT:aws.crypt.base
 #deep :s3:glacier-deep-archive-backup-ab
 #
-# Interactive rclone copy launcher.
+# Interactive rclone copy/sync launcher.
 # Secrets live in the embedded PGP blob (RCLONE_PASSWORD, RCLONE_SALT,
 # AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY).
 # They are exported for the rclone process only and wiped on exit.
 # Plaintext crypt password/salt are dropped after rclone obscure.
+#
+# Preset field 6 is the operation: copy or sync.
+# copy leaves extras already in the destination alone.
+# sync deletes destination objects that are not in the source.
 
 set -euo pipefail
 unset HISTFILE
@@ -149,29 +153,33 @@ if [[ -n "${RCLONE_PASSWORD:-}" && -n "${RCLONE_SALT:-}" ]]; then
   unset RCLONE_PASSWORD RCLONE_SALT
 fi
 
-# Format: "Display Name|source|destination|bucket|storageClass"
+# Format: "Display Name|source|destination|bucket|storageClass|operation"
+# operation is copy or sync. Omitted operation defaults to copy.
 # bucket may be an on-the-fly remote (:s3:bucket-name) or a named remote
 # prefix (S3CRYPT:). Destination is the path inside that bucket.
 # Empty destination copies onto the remote root.
+# sync deletes destination objects missing from the source.
 presets=(
-  #"Backup Google Takeout to AWS DEEP Archive|/home/ab/Downloads/dtach/googleTakeout/|googletakeout/|:s3:glacier-deep-archive-backup-ab|DEEP_ARCHIVE"
-  #"Archive freespace backups to AWS Deep|/media/freespace/backups/gentoo25/|gentoo.backup|:s3:glacier-deep-archive-backup-ab|DEEP_ARCHIVE"
-  "Backup Programming Folder to AWS Encrypted Glacier|/media/stor/Programming|/Backup.S3Crypt.Glacier/Programming/|S3CRYPT:|GLACIER"
-  "Backup opt.2025 Folder to AWS Encrypted Glacier|/media/stor/opt.2025|/Backup.S3Crypt.Glacier/opt.2025/|S3CRYPT:|GLACIER"
-  "Backup Downloads Folder to AWS Encrypted Standard|/media/stor/Downloads|/Backup.S3Crypt.Standard/Downloads/|S3CRYPT:|STANDARD"
-  #"T1Copy DEEP test.txt to AWS Encrypted|/media/freespace/test2.txt|/Backup.S3Crypt.Glacier|:s3:glacier-deep-archive-backup-ab|GLACIER"
-  #"T2Copy CRYPT test.txt to AWS Encrypted|/media/freespace/test.txt||S3CRYPT:|STANDARD"
+  #"Backup Google Takeout to AWS DEEP Archive|/home/ab/Downloads/dtach/googleTakeout/|googletakeout/|:s3:glacier-deep-archive-backup-ab|DEEP_ARCHIVE|copy"
+  #"Archive freespace backups to AWS Deep|/media/freespace/backups/gentoo25/|gentoo.backup|:s3:glacier-deep-archive-backup-ab|DEEP_ARCHIVE|copy"
+  "Backup Programming Folder to AWS Encrypted Glacier|/media/stor/Programming|/Backup.S3Crypt.Glacier/Programming/|S3CRYPT:|GLACIER|copy"
+  "Backup opt.2025 Folder to AWS Encrypted Glacier|/media/stor/opt.2025|/Backup.S3Crypt.Glacier/opt.2025/|S3CRYPT:|GLACIER|copy"
+  "Backup Downloads Folder to AWS Encrypted Standard|/media/stor/Downloads|/Backup.S3Crypt.Standard/Downloads/|S3CRYPT:|STANDARD|copy"
+  #"Sync Programming Folder to AWS Encrypted Glacier|/media/stor/Programming|/Backup.S3Crypt.Glacier/Programming/|S3CRYPT:|GLACIER|sync"
+  #"T1Copy DEEP test.txt to AWS Encrypted|/media/freespace/test2.txt|/Backup.S3Crypt.Glacier|:s3:glacier-deep-archive-backup-ab|GLACIER|copy"
+  #"T2Copy CRYPT test.txt to AWS Encrypted|/media/freespace/test.txt||S3CRYPT:|STANDARD|copy"
 )
 
 echo
-echo "=== rclone copy – Preset Launcher ==="
+echo "=== rclone copy/sync – Preset Launcher ==="
 echo
 echo "Available presets:"
 echo
 
 for i in "${!presets[@]}"; do
-  name="${presets[$i]%%|*}"
-  printf "  %2d) %s\n" $((i+1)) "$name"
+  IFS='|' read -r pname _psrc _pdst _pbkt _pclass pop <<< "${presets[$i]}"
+  pop="${pop:-copy}"
+  printf "  %2d) [%s] %s\n" $((i+1)) "$pop" "$pname"
 done
 echo
 
@@ -185,7 +193,13 @@ while true; do
   fi
 done
 
-IFS='|' read -r preset_name source destination bucket storageClass <<< "$selected"
+IFS='|' read -r preset_name source destination bucket storageClass preset_op <<< "$selected"
+preset_op="${preset_op:-copy}"
+preset_op="${preset_op,,}"
+if [[ "$preset_op" != "copy" && "$preset_op" != "sync" ]]; then
+  echo "Preset operation must be copy or sync, got: $preset_op" >&2
+  exit 1
+fi
 
 echo
 echo "→ Selected preset: $preset_name"
@@ -193,6 +207,7 @@ echo "  Source:        $source"
 echo "  Destination:   $destination"
 echo "  Bucket:        $bucket"
 echo "  Storage class: $storageClass"
+echo "  Preset op:     $preset_op"
 echo
 
 # Backend flag, this process only. DEEP_ARCHIVE uploads are not readable
@@ -204,8 +219,21 @@ if [[ ! -e "$source" ]]; then
   exit 1
 fi
 
+echo "Operation (preset default: $preset_op):"
+echo "  copy leaves extras already in the destination alone."
+echo "  sync deletes destination objects that are not in the source."
+select op_choice in "copy" "sync" "Use preset ($preset_op)"; do
+  case $REPLY in
+    1) operation="copy"; break ;;
+    2) operation="sync"; break ;;
+    3) operation="$preset_op"; break ;;
+    *) echo "Invalid choice" ;;
+  esac
+done
+echo
+
 echo "Do you want a DRY-RUN? (no real changes)"
-select dry in "Yes (add --dry-run)" "No (real copy)"; do
+select dry in "Yes (add --dry-run)" "No (real $operation)"; do
   case $REPLY in
     1) dry_run="--dry-run"; break ;;
     2) dry_run=""; break ;;
@@ -218,7 +246,7 @@ safe_bucket="${bucket#:s3:}"
 safe_bucket="${safe_bucket//[:\/]/_}"
 logdir="${RCLONE_LOGDIR:-.}"
 mkdir -p "$logdir"
-logfile="${logdir}/log-aws-${storageClass}-${safe_bucket}-$(date +%F).log"
+logfile="${logdir}/log-aws-${operation}-${storageClass}-${safe_bucket}-$(date +%F).log"
 export RCLONE_LOG_FILE="$logfile"
 
 use_dtach=0
@@ -232,13 +260,12 @@ else
   echo "dtach not found; running rclone in the foreground."
 fi
 
-# copy (not sync): extras already in the destination are left alone.
 cmd=()
 if (( use_dtach )); then
   cmd+=(dtach -A "$sock")
 fi
 cmd+=(
-  rclone copy "$source" "${bucket}/${destination}" --progress
+  rclone "$operation" "$source" "${bucket}/${destination}" --progress
 )
 
 [[ -n "$dry_run" ]] && cmd+=("$dry_run")
@@ -247,6 +274,9 @@ echo "================ PROPOSED COMMAND ================"
 printf '%q ' "${cmd[@]}"
 echo
 echo "Log: $logfile"
+if [[ "$operation" == "sync" && -z "$dry_run" ]]; then
+  echo "WARNING: sync will delete destination objects missing from the source."
+fi
 echo "=================================================="
 if (( use_dtach )); then
   echo "dtach socket: $sock"
@@ -267,7 +297,10 @@ rc=$?
 set -e
 exit "$rc"
 
-# Unmount is not this script. Copy presets:
+# Unmount is not this script. Preset operations:
+#   copy  leaves destination extras alone
+#   sync  deletes destination objects missing from the source
+# Remote examples:
 #   :s3:glacier-deep-archive-backup-ab  + DEEP_ARCHIVE
 #   S3CRYPT:                            + STANDARD
 # DEEP_ARCHIVE objects list after upload; reads fail until restored.
